@@ -165,7 +165,10 @@ router.delete('/:id', async (req, res) => {
 // GET /api/templates/:id
 router.get('/:id', async (req, res) => {
   try {
-    const template = await Template.findById(req.params.id);
+    const template = await Template.findById(id)
+      .populate('plans')          
+      .populate('categories')     
+      .populate('sub_categories') 
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
     }
