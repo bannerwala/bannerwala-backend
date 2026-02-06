@@ -8,6 +8,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Login
+
 export const loginUser = async (req, res) => {
   try {
     const { contact_number, otp, is_new, name } = req.body;
@@ -58,6 +60,7 @@ export const loginUser = async (req, res) => {
   }
 };
 
+// Send OTP
 
 export const sendOtp = async (req, res) => {
   try {
@@ -116,3 +119,88 @@ export const sendOtp = async (req, res) => {
     res.status(500).json({ message: 'Failed to send OTP' });
   }
 };
+
+
+// All User
+export const getAllUsers = async (req, res) => {
+  try {
+    const { role, plan } = req.query;
+
+    let filter = {};
+
+    if (plan) {
+      const existing_plan = await SubscriptionPlan.find({ name: { $regex: plan, $options: 'i' } });
+      filter.plans = existing_plan._id;
+    }
+
+    if (role) filter.role = role;
+
+    const users = await User.find(filter);
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Get a single user
+export const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+//  Update a single user
+export const updateUser = async (req, res) => {
+  const ALLOWED_UPDATES = [
+    'name',
+    'email_id',
+    'profile_pic',
+    'background_removed_pic',
+    'firm_name',
+    'desi,gnation',
+    'address',
+    'language',
+    'gender',
+    'DOB',
+    'subscription_details',
+    'user_template_details'
+  ];
+  const updates = req.body;
+  const id = req.params.id;
+
+  // Sanitize / filter only allowed fields
+  const updateData = {};
+  for (const key of ALLOWED_UPDATES) {
+    if (updates[key] !== undefined) {
+      updateData[key] = updates[key];
+    }
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    // Nothing to update
+    return res.status(400).json({ error: 'No valid fields provided for update' });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.json(user);
+  } catch (err) {
+    console.error('Error updating user:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}

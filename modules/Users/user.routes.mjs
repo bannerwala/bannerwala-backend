@@ -4,13 +4,13 @@ import { getAllUsers, getUserById, updateUser, loginUser, sendOtp } from './user
 const router = express.Router();
 
 // GET /api/users
-router.post('/', getAllUsers);
+router.get('/', getAllUsers);
 
 // GET /api/users/:id
-router.post('/:id', getUserById);
+router.get('/:id', getUserById);
 
 // PUT /api/users
-router.post('/:id', updateUser);
+router.put('/:id', updateUser);
 
 // POST /api/users/login
 router.post('/login', loginUser);
