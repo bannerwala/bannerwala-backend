@@ -1,5 +1,6 @@
-const mongoose = require('mongoose');
-const moment = require('moment');
+import moment from "moment";
+import mongoose from "mongoose";
+
 
 const templateSchema = new mongoose.Schema({
   url: String,
@@ -17,4 +18,4 @@ const templateSchema = new mongoose.Schema({
   updated_at: { type: Number, default: moment.utc().valueOf() }
 });
 
-module.exports = mongoose.model('Template', templateSchema);
+export default mongoose.model('Template', templateSchema);

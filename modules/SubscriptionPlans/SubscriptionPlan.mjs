@@ -1,5 +1,6 @@
-const mongoose = require('mongoose');
-const moment = require('moment');
+import moment from "moment";
+import mongoose from "mongoose";
+
 
 const subscriptionPlanSchema = new mongoose.Schema({
   name: String,
@@ -12,4 +13,4 @@ const subscriptionPlanSchema = new mongoose.Schema({
 });
 
 
-module.exports = mongoose.model('SubscriptionPlan', subscriptionPlanSchema);
+export default mongoose.model('SubscriptionPlan', subscriptionPlanSchema);
