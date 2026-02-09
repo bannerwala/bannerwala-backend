@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
     designation: String,
     address: String,
     otp: String,
-    role: { type: mongoose.Schema.Types.ObjectId, ref: 'UserRole' },
+    role: String,
     language: String,
     gender: String,
     DOB: { type: Number, default: moment.utc().valueOf() },
