@@ -1,5 +1,5 @@
-import Category from './Category.mjs';
-import SubCategory from './SubCategory.mjs';
+import Category from '../Categories/Category.mjs';
+import SubCategory from '../Sub-Categories/SubCategory.mjs';
 import Template from './Template.mjs';
 
 //Get all templates with filters

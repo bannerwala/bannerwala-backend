@@ -13,3 +13,4 @@ router.get('/:id', getSingleCategory);
 
 // PUT /api/category/:id
 router.put('/:id', updateSingleCategory);
+export default router;

@@ -17,3 +17,4 @@ router.put('/:id', updateSubscriptionPlan);
 
 // DELETE /api/subscriptionPlans/:id
 router.delete('/:id', deleteSubscriptionPlan);
+export default router;

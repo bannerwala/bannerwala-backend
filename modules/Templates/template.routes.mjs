@@ -13,9 +13,9 @@ router.post('/', addTemplate);
 router.put('/:id', updateTemplate);
 
 //  PATCH /api/template/:id
-router.patch('/:id',updateStatus);
+router.patch('/:id', updateStatus);
 
 // DELETE /api/template/:id
-router.delete('/:id',deleteTemplate);
+router.delete('/:id', deleteTemplate);
 
-
+export default router;

@@ -15,3 +15,4 @@ router.get('/:id', getSingleSubCategory);
 router.put('/:id', UpdateSingleSubcategory);
 
 
+export default router;
