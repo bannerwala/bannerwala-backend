@@ -1,4 +1,4 @@
-
+import SubCategory from './SubCategory.mjs';
 // Get all subcategories
 export const getAllSubcategories = async (req, res) => {
     try {

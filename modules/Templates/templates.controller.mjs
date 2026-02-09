@@ -1,3 +1,6 @@
+import Category from './Category.mjs';
+import SubCategory from './SubCategory.mjs';
+import Template from './Template.mjs';
 
 //Get all templates with filters
 export const getAllTemplates = async (req, res) => {

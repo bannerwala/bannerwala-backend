@@ -1,3 +1,4 @@
+import SubscriptionPlan from './SubscriptionPlan.mjs';
 
 //  Get all subscriptionPlans
 export const getAllSubscriptionPlans = async (req, res) => {
@@ -21,7 +22,7 @@ export const getAllSubscriptionPlans = async (req, res) => {
 }
 
 // Create a new subscriptionPlan
-export const AddSubscriptionPlan = async (req, res) => {
+export const addSubscriptionPlan = async (req, res) => {
     try {
         const { name, price, duration, description, status } = req.body;
 

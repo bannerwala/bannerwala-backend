@@ -1,3 +1,4 @@
+import Category from '.Category/.mjs';
 // Get all categories
 
 export const getAllCategories = async (req, res) => {

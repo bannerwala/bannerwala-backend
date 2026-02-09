@@ -1,5 +1,5 @@
 import express from 'express';
-import { AddSubscriptionPlan, deleteSubscriptionPlan, getAllSubscriptionPlans, getSingleSubscriptionPlan, updateSubscriptionPlan } from './subscription-plans.controller.mjs';
+import {  addSubscriptionPlan, deleteSubscriptionPlan, getAllSubscriptionPlans, getSingleSubscriptionPlan, updateSubscriptionPlan } from './subscription-plans.controller.mjs';
 const router = express.Router();
 
 
@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', getAllSubscriptionPlans);
 
 // POST /api/subscriptionPlans 
-router.post('/', AddSubscriptionPlan);
+router.post('/', addSubscriptionPlan);
 
 // GET /api/subscriptionPlans/:id
 router.get('/:id', getSingleSubscriptionPlan);
