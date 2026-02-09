@@ -160,4 +160,22 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+
+//Get Single Template
+// GET /api/templates/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id)
+      .populate('plans')          
+      .populate('categories')     
+      .populate('sub_categories') 
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.json(template);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
