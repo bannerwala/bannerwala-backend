@@ -13,7 +13,11 @@ const userSchema = new mongoose.Schema({
     firm_name: String,
     designation: String,
     address: String,
+
+    // 🔐 OTP fields
     otp: String,
+    otp_expires_at: Number,
+
     role: { type: mongoose.Schema.Types.ObjectId, ref: 'UserRole' },
     language: String,
     gender: String,
