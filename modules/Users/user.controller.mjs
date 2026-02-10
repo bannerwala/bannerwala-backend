@@ -16,7 +16,7 @@ export const loginUser = async (req, res) => {
 
     const user = await User.findOne({ contact_number })
       .populate({ path: 'role' });
-      
+
     if (!user) {
       return res.status(400).json({ message: 'User not found' });
     }
@@ -82,7 +82,9 @@ export const sendOtp = async (req, res) => {
     const otpExpiry = moment().add(5, 'minutes').valueOf(); // 5 min
     console.log('otpExpiry: ', otpExpiry);
 
-    let user = await User.findOne({ contact_number });
+    let user = await User.findOne({ contact_number })
+      .populate({ path: 'role' });
+
     console.log('user: ', user);
     let is_new = false;
 
@@ -136,7 +138,9 @@ export const getAllUsers = async (req, res) => {
 
     if (role) filter.role = role;
 
-    const users = await User.find(filter);
+    const users = await User.find(filter)
+      .populate({ path: 'role' })
+
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -146,7 +150,9 @@ export const getAllUsers = async (req, res) => {
 // Get a single user
 export const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id)
+      .populate({ path: 'role' });
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -193,7 +199,7 @@ export const updateUser = async (req, res) => {
       id,
       updateData,
       { new: true }
-    );
+    ).populate({ path: 'role' });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
