@@ -14,7 +14,7 @@ dotenv.config();
 
 export const loginUser = async (req, res) => {
   try {
-    const { contact_number, otp, is_new, name } = req.body;
+    const { contact_number, otp } = req.body;
 
     const user = await User.findOne({ contact_number })
       .populate({ path: 'role' });
@@ -36,10 +36,6 @@ export const loginUser = async (req, res) => {
     // Clear OTP after successful login
     user.otp = null;
     user.otp_expires_at = null;
-
-    if (is_new) {
-      user.name = name;
-    }
 
     await user.save();
 
@@ -88,16 +84,15 @@ export const sendOtp = async (req, res) => {
       .populate({ path: 'role' });
 
     console.log('user: ', user);
-    let is_new = false;
 
     if (!user) {
       // 🆕 Create new user
       user = await User.create({
         contact_number,
         otp,
-        otp_expires_at: otpExpiry
+        otp_expires_at: otpExpiry,
+        is_new_user: user ? false : true
       });
-      is_new = true;
     } else {
       // ♻️ Existing user → update OTP
       user.otp = otp;
@@ -116,7 +111,6 @@ export const sendOtp = async (req, res) => {
 
     res.json({
       message: 'OTP sent successfully',
-      is_new
     });
 
   } catch (err) {
@@ -178,7 +172,7 @@ export const updateUser = async (req, res) => {
     'profile_pic',
     'background_removed_pic',
     'firm_name',
-    'desi,gnation',
+    'designation',
     'address',
     'language',
     'gender',
@@ -203,19 +197,28 @@ export const updateUser = async (req, res) => {
   }
 
   try {
-    const user = await User.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true }
-    ).populate({ path: 'role' });
+    // Fetch the user first
+    const user = await User.findById(id);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // Apply updates only for allowed fields
+    Object.assign(user, updateData);
+
+    // If user.is_new_user is true → set it to false
+    if (user.is_new_user === true) {
+      user.is_new_user = false;
+    }
+
+    // Save and populate
+    await user.save();
+    await user.populate({ path: 'role' });
 
     return res.json(user);
   } catch (err) {
     console.error('Error updating user:', err);
     return res.status(500).json({ error: err.message });
   }
-}
+};
