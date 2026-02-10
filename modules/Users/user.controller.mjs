@@ -6,6 +6,8 @@ import twilio from 'twilio';
 import otpGenerator from 'otp-generator';
 import dotenv from 'dotenv';
 
+import UserRole from "../UserRoles/UserRole.mjs";
+
 dotenv.config();
 
 // Login
@@ -136,7 +138,13 @@ export const getAllUsers = async (req, res) => {
       filter.plans = existing_plan._id;
     }
 
-    if (role) filter.role = role;
+    if (role) {
+      const existingRole = await UserRole.findOne({ name: role });
+      if (!existingRole) {
+        return res.status(400).json({ message: 'User role not found' });
+      }
+      filter.role = existingRole._id;
+    }
 
     const users = await User.find(filter)
       .populate({ path: 'role' })
