@@ -100,16 +100,17 @@ export const sendOtp = async (req, res) => {
       await user.save();
     }
 
-    // Send OTP
-    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    // // Send OTP
+    // const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-    await client.messages.create({
-      to: `+91${contact_number}`,
-      from: '+16419343401',
-      body: `OTP for 3_Extent is ${otp}`
-    });
+    // await client.messages.create({
+    //   to: `+91${contact_number}`,
+    //   from: '+16419343401',
+    //   body: `OTP for 3_Extent is ${otp}`
+    // });
 
     res.json({
+      otp: otp,
       message: 'OTP sent successfully',
     });
 
