@@ -71,33 +71,70 @@ export const getSingleSubCategory = async (req, res) => {
 
 // Update a single subcategory
 export const UpdateSingleSubcategory = async (req, res) => {
-    const { name, category_name } = req.body;
-    console.log("name", name);
-    console.log("category_name", category_name);
-
-
-    const categoryDoc = await Category.findOne({ name: { $regex: category_name, $options: 'i' } });
-    if (!categoryDoc) {
-        return res.status(404).json({ error: 'Category not found' });
-    }
-
-    const categoryId = categoryDoc._id;
+    const { name, category } = req.body;
 
     try {
+        // 🔹 Validate name
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: "Name is required" });
+        }
+
+        // 🔹 Validate category
+        if (!category) {
+            return res.status(400).json({ error: "Category is required" });
+        }
+
+        const cleanedName = name.trim();
+
+        // Convert comma separated string to array
+        const categoryNames = category
+            .split(",")
+            .map(c => c.trim())
+            .filter(Boolean);
+
+        if (!categoryNames.length) {
+            return res.status(400).json({ error: "At least one valid category is required" });
+        }
+
+        // Find matching categories (case-insensitive exact match)
+        const categoryDocs = await Category.find({
+            name: { $in: categoryNames.map(n => new RegExp(`^${n}$`, "i")) }
+        });
+
+        if (!categoryDocs.length) {
+            return res.status(404).json({ error: "No matching categories found" });
+        }
+
+        const categoryIds = categoryDocs.map(cat => cat._id);
+
+        // 🔹 Optional: Prevent duplicate subcategory name
+        const existingSubCategory = await SubCategory.findOne({
+            name: { $regex: `^${cleanedName}$`, $options: "i" },
+            _id: { $ne: req.params.id } // exclude current one
+        });
+
+        if (existingSubCategory) {
+            return res.status(400).json({ error: "SubCategory name already exists" });
+        }
+
         const subCategory = await SubCategory.findByIdAndUpdate(
             req.params.id,
-            { name, category: categoryId },
+            {
+                name: cleanedName,
+                category: categoryIds
+            },
             { new: true }
-        );
+        ).populate("category");
 
         if (!subCategory) {
-            return res.status(404).json({ error: 'SubCategory not found' });
+            return res.status(404).json({ error: "SubCategory not found" });
         }
 
         return res.json(subCategory);
+
     } catch (err) {
-        console.error('Error updating user:', err);
+        console.error("Error updating subcategory:", err);
         return res.status(500).json({ error: err.message });
     }
+};
 
-}
