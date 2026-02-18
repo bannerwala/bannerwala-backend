@@ -1,6 +1,7 @@
 import Category from '../Categories/Category.mjs';
 import SubCategory from '../Sub-Categories/SubCategory.mjs';
-import { processPSD } from './template.helper.mjs';
+import SubscriptionPlan from '../SubscriptionPlans/SubscriptionPlan.mjs';
+import { processPSD, uploadPngStream } from './template.helper.mjs';
 import Template from './Template.mjs';
 
 //Get all templates with filters
@@ -93,7 +94,9 @@ export const addTemplate = async (req, res) => {
             font_color,
             has_multiple_images
         } = req.body;
+        console.log('req.body: ', req.body);
 
+        console.log('req.file: ', req.file);
         if (!req.file) {
             return res.status(400).json({ error: "PSD file is required" });
         }
@@ -101,14 +104,17 @@ export const addTemplate = async (req, res) => {
         /* ===== Validate Relations ===== */
 
         const existing_categories = await Category.find({ name: { $in: categories } });
+        console.log('existing_categories: ', existing_categories);
         if (!existing_categories.length)
             return res.status(404).json({ error: "Categories not found" });
 
         const existing_sub_categories = await SubCategory.find({ name: { $in: sub_categories } });
+        console.log('existing_sub_categories: ', existing_sub_categories);
         if (!existing_sub_categories.length)
             return res.status(404).json({ error: "Subcategories not found" });
 
         const existing_plans = await SubscriptionPlan.find({ name: { $in: plans } });
+        console.log('existing_plans: ', existing_plans);
         if (!existing_plans.length)
             return res.status(404).json({ error: "Plans not found" });
 
