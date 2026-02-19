@@ -36,6 +36,7 @@ export const getAllTemplates = async (req, res) => {
         }
 
         const templates = await Template.find(filter)
+            .select('-layout')
             .populate('categories')
             .populate('sub_categories')
             .populate('plans')
