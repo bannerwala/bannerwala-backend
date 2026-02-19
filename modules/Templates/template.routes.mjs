@@ -7,6 +7,9 @@ const router = express.Router();
 // GET /api/templates
 router.get('/', getAllTemplates);
 
+//GET /api/templates/urls
+router.get("/urls", getAllTemplateUrls);
+
 // GET /api/templates/:id
 router.get('/:id', getTemplateById);
 
@@ -22,7 +25,6 @@ router.patch('/:id', updateStatus);
 // DELETE /api/template/:id
 router.delete('/:id', deleteTemplate);
 
-//GET /api/templates/urls
-router.get("/urls", getAllTemplateUrls);
+
 
 export default router;
