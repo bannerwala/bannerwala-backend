@@ -33,8 +33,8 @@ async function connectToDB() {
     await mongoose.connect(
       'mongodb+srv://codadhyay_image_edit:pfXB9Sa0o5awywl4@image-edit.vy1zqit.mongodb.net/image-edit',
       {
-        connectTimeoutMS: 30000,
-        serverSelectionTimeoutMS: 30000
+        connectTimeoutMS: 100000,
+        serverSelectionTimeoutMS: 100000
       }
     );
 
