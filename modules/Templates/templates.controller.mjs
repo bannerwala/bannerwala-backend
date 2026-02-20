@@ -114,7 +114,7 @@ export const getTemplateById = async (req, res) => {
 // Add template
 export const addTemplate = async (req, res) => {
     try {
-        const {
+        let {
             categories,
             sub_categories,
             plans,
