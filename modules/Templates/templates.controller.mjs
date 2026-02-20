@@ -42,7 +42,8 @@ export const getAllTemplates = async (req, res) => {
             .populate('sub_categories')
             .populate('plans')
             .skip(offset)
-            .limit(limit);
+            .limit(limit)
+            .lean();
 
 
         for (let template of templates) {

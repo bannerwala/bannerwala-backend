@@ -177,23 +177,29 @@ export const getAllUsers = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .populate({ path: 'role' });
-
-    const activities = await TemplatesActivity.find({
-      user: user._id
-    }).populate("template")
-      .sort({ created_at: -1 });
-
-    user.template_activities = activities;
+      .populate('role')
+      .lean(); 
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    const activities = await TemplatesActivity.find({
+      user: user._id
+    })
+      .populate("template")
+      .sort({ created_at: -1 })
+      .lean();
+
+    user.template_activities = activities;
+
     res.json(user);
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+};
+
 
 //  Update a single user
 export const updateUser = async (req, res) => {
