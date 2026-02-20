@@ -8,6 +8,7 @@ import templateRoutes from '../modules/Templates/template.routes.mjs';
 import categoryRoutes from '../modules/Categories/category.routes.mjs';
 import subCategoryRoutes from '../modules/Sub-Categories/sub-category.routes.mjs';
 import subscriptionPlanRoutes from '../modules/SubscriptionPlans/subscription-plans.routes.mjs';
+import templateActivityRoutes from '../modules/Templates/TemplatesActivity/template-activity.routes.mjs';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/sub-categories', subCategoryRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
+app.use('/api/template-activity', templateActivityRoutes);
 
 // MongoDB connection (serverless-safe)
 let isConnected = false;

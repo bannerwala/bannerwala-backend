@@ -3,6 +3,7 @@ import SubCategory from '../Sub-Categories/SubCategory.mjs';
 import SubscriptionPlan from '../SubscriptionPlans/SubscriptionPlan.mjs';
 import { processPSD, uploadPngStream } from './template.helper.mjs';
 import Template from './Template.mjs';
+import TemplatesActivity from './TemplatesActivity/TemplatesActivity.mjs';
 
 //Get all templates with filters
 export const getAllTemplates = async (req, res) => {
@@ -42,11 +43,25 @@ export const getAllTemplates = async (req, res) => {
             .populate('plans')
             .skip(offset)
             .limit(limit);
+
+
+        for (let template of templates) {
+            const activities = await TemplatesActivity.find({
+                template: template._id
+            })
+                .populate("user")
+                .sort({ created_at: -1 })
+                .lean();
+
+            template.template_activities = activities;
+        }
+
         res.json(templates);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-}
+};
+
 
 export const getTemplateById = async (req, res) => {
     try {
@@ -56,7 +71,7 @@ export const getTemplateById = async (req, res) => {
             return res.status(400).json({ error: "id is required" });
         }
 
-
+        // 1️⃣ Get template
         const template = await Template.findById(id)
             .populate("plans", "name")
             .populate("categories", "name")
@@ -68,6 +83,17 @@ export const getTemplateById = async (req, res) => {
                 message: "Template not found"
             });
         }
+
+        // 2️⃣ Get activities related to this template
+        const activities = await TemplatesActivity.find({
+            template: id
+        })
+            .populate("user")
+            .sort({ created_at: -1 })
+            .lean();
+
+        // 3️⃣ Attach activities to response (NOT DB)
+        template.template_activities = activities;
 
         return res.status(200).json({
             message: "Template fetched successfully",
@@ -82,6 +108,7 @@ export const getTemplateById = async (req, res) => {
         });
     }
 };
+
 
 // Add template
 export const addTemplate = async (req, res) => {

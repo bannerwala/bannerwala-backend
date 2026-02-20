@@ -24,7 +24,6 @@ const userSchema = new mongoose.Schema({
     DOB: { type: Number, default: moment.utc().valueOf() },
     subscription_details: [{
         plan: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan' },
-        used_templates: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Template' }],
         start_date: { type: Number, default: moment.utc().valueOf() },
         end_date: { type: Number, default: moment.utc().valueOf() }
     }],
@@ -34,6 +33,7 @@ const userSchema = new mongoose.Schema({
         date_position: String,
         pic_position: String
     },
+
     created_at: { type: Number, default: moment.utc().valueOf() },
     updated_at: { type: Number, default: moment.utc().valueOf() }
 });

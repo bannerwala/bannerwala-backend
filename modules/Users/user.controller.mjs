@@ -7,6 +7,7 @@ import otpGenerator from 'otp-generator';
 import dotenv from 'dotenv';
 
 import UserRole from "../UserRoles/UserRole.mjs";
+import TemplatesActivity from '../Templates/TemplatesActivity/TemplatesActivity.mjs';
 
 dotenv.config();
 
@@ -121,40 +122,69 @@ export const sendOtp = async (req, res) => {
 };
 
 
-// All User
 export const getAllUsers = async (req, res) => {
   try {
     const { role, plan } = req.query;
-
     let filter = {};
 
+    // 🔎 Filter by plan
     if (plan) {
-      const existing_plan = await SubscriptionPlan.find({ name: { $regex: plan, $options: 'i' } });
-      filter.plans = existing_plan._id;
+      const existingPlans = await SubscriptionPlan.find({
+        name: { $regex: plan, $options: "i" }
+      });
+
+      if (existingPlans.length > 0) {
+        filter["subscription_details.plan"] = {
+          $in: existingPlans.map(p => p._id)
+        };
+      }
     }
 
+    // 🔎 Filter by role
     if (role) {
       const existingRole = await UserRole.findOne({ name: role });
       if (!existingRole) {
-        return res.status(400).json({ message: 'User role not found' });
+        return res.status(400).json({ message: "User role not found" });
       }
       filter.role = existingRole._id;
     }
 
+    // 1️⃣ Get users
     const users = await User.find(filter)
-      .populate({ path: 'role' })
+      .populate("role")
+      .lean(); // important
+
+    // 2️⃣ Attach activities for each user
+    for (let user of users) {
+      const activities = await TemplateActivity.find({
+        user: user._id
+      })
+        .populate("template", "name thumbnail")
+        .sort({ created_at: -1 });
+
+      user.template_activities = activities;
+    }
 
     res.json(users);
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+};
+
 
 // Get a single user
 export const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
       .populate({ path: 'role' });
+
+    const activities = await TemplatesActivity.find({
+      user: user._id
+    }).populate("template")
+      .sort({ created_at: -1 });
+
+    user.template_activities = activities;
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });

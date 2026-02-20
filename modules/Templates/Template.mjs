@@ -16,7 +16,7 @@ const templateSchema = new mongoose.Schema({
     canvas: CanvasSchema,
     layers: [mongoose.Schema.Types.Mixed]
   },
-  
+
 
   // /* ===== Thumbnail ===== */
   // thumbnail: {
