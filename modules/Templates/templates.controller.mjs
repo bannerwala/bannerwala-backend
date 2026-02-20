@@ -213,44 +213,92 @@ export const addTemplate = async (req, res) => {
     }
 };
 
-// Update template
+//update Template
 export const updateTemplate = async (req, res) => {
     try {
-        const { url, categories, sub_categories, plans, font_family, font_size, font_color, font_style, font_weight } = req.body;
+        let {
+            categories,
+            sub_categories,
+            plans,
+            font_family,
+            font_size,
+            font_color,
+            font_style,
+            font_weight
+        } = req.body;
 
         const template = await Template.findById(req.params.id);
         if (!template) {
             return res.status(404).json({ error: 'Template not found' });
         }
 
-        const existing_categories = await Category.find({ name: { $in: categories } });
-        if (existing_categories.length === 0) {
-            return res.status(404).json({ error: 'Categories not found' });
-        }
-        const existing_sub_categories = await SubCategory.find({ name: { $in: sub_categories } });
-        if (existing_sub_categories.length === 0) {
-            return res.status(404).json({ error: 'Subcategories not found' });
-        }
-        const existing_plans = await SubscriptionPlan.find({ name: { $in: plans } });
-        if (existing_plans.length === 0) {
-            return res.status(404).json({ error: 'Plans not found' });
+        /* ===== Convert comma separated to array ===== */
+
+        if (typeof categories === "string") {
+            categories = categories.split(",").map(c => c.trim());
         }
 
-        template.url = url;
-        template.categories = existing_categories.map(category => category._id);
-        template.sub_categories = existing_sub_categories.map(sub_category => sub_category._id);
-        template.plans = existing_plans.map(plan => plan._id);
-        template.font_family = font_family;
-        template.font_size = font_size;
-        template.font_color = font_color;
-        template.font_style = font_style;
-        template.font_weight = font_weight;
+        if (typeof sub_categories === "string") {
+            sub_categories = sub_categories.split(",").map(s => s.trim());
+        }
+
+        if (typeof plans === "string") {
+            plans = plans.split(",").map(p => p.trim());
+        }
+
+        /* ===== Validate Categories ===== */
+
+        const existing_categories = await Category.find({
+            name: { $in: categories }
+        });
+
+        if (existing_categories.length !== categories.length) {
+            return res.status(404).json({ error: 'Some categories not found' });
+        }
+
+        /* ===== Validate SubCategories (Must Belong To Categories) ===== */
+
+        const existing_sub_categories = await SubCategory.find({
+            name: { $in: sub_categories },
+            category: { $in: existing_categories.map(c => c._id) }
+        });
+
+        if (existing_sub_categories.length !== sub_categories.length) {
+            return res.status(400).json({
+                error: 'Some subcategories do not belong to selected categories'
+            });
+        }
+
+        /* ===== Validate Plans ===== */
+
+        const existing_plans = await SubscriptionPlan.find({
+            name: { $in: plans }
+        });
+
+        if (existing_plans.length !== plans.length) {
+            return res.status(404).json({ error: 'Some plans not found' });
+        }
+
+        /* ===== Update Template ===== */
+
+        template.categories = existing_categories.map(c => c._id);
+        template.sub_categories = existing_sub_categories.map(s => s._id);
+        template.plans = existing_plans.map(p => p._id);
+        template.font_family = font_family ?? template.font_family;
+        template.font_size = font_size ?? template.font_size;
+        template.font_color = font_color ?? template.font_color;
+        template.font_style = font_style ?? template.font_style;
+        template.font_weight = font_weight ?? template.font_weight;
+
         await template.save();
+
         res.json(template);
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-}
+};
+
 
 //Update status of template 
 export const updateStatus = async (req, res) => {
@@ -278,28 +326,3 @@ export const deleteTemplate = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 }
-
-//Get all template urls
-export const getAllTemplateUrls = async (req, res) => {
-    try {
-        const templates = await Template.find(
-            { url: { $exists: true, $ne: null } }, // only documents with url
-            { _id: 0, url: 1 } // return only url field
-        ).lean();
-
-        // Convert to simple array if needed
-        const urls = templates.map(t => t.url);
-
-        return res.status(200).json({
-            count: urls.length,
-            urls
-        });
-
-    } catch (error) {
-        console.error("Error fetching template URLs:", error);
-        return res.status(500).json({
-            message: "Failed to fetch URLs",
-            error: error.message
-        });
-    }
-};
