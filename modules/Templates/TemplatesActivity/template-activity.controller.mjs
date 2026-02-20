@@ -11,7 +11,7 @@ export const templateAction = async (req, res) => {
     });
 
     if (action === "download") {
-      res.json({ message: `Downloaded recorded successfully` });
+      res.json({ message: `Download recorded successfully` });
     } else if (action === "share") {
       res.json({ message: `Shared recorded successfully` });
     }
