@@ -147,13 +147,30 @@ export const addTemplate = async (req, res) => {
 
         const existing_categories = await Category.find({ name: { $in: categories } });
         console.log('existing_categories: ', existing_categories);
+
         if (!existing_categories.length)
             return res.status(404).json({ error: "Categories not found" });
+
+        // Extract selected category IDs
+        const categoryIds = existing_categories.map(c => c._id.toString());
 
         const existing_sub_categories = await SubCategory.find({ name: { $in: sub_categories } });
         console.log('existing_sub_categories: ', existing_sub_categories);
         if (!existing_sub_categories.length)
             return res.status(404).json({ error: "Subcategories not found" });
+
+        // Validate subcategories belong to selected categories
+        for (let sub of existing_sub_categories) {
+            const belongs = sub.category.some(catId =>
+                categoryIds.includes(catId.toString())
+            );
+
+            if (!belongs) {
+                return res.status(400).json({
+                    error: `Subcategory '${sub.name}' does not belong to selected categories`
+                });
+            }
+        }
 
         const existing_plans = await SubscriptionPlan.find({ name: { $in: plans } });
         console.log('existing_plans: ', existing_plans);
