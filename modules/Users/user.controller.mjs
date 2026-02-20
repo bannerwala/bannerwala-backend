@@ -232,8 +232,25 @@ export const updateUser = async (req, res) => {
     // ✅ Update text fields from form-data
     for (const key of ALLOWED_UPDATES) {
       // console.log('req.body[key]: ', req.body[key]);
-      if (req.body[key] !== undefined) {
-        user[key] = req.body[key];
+      for (const key of ALLOWED_UPDATES) {
+        if (req.body[key] !== undefined) {
+
+          // 🔥 Parse JSON fields properly
+          if (key === 'subscription_details' || key === 'user_template_details') {
+            try {
+              user[key] = JSON.parse(req.body[key]);
+            } catch (error) {
+              return res.status(400).json({
+                error: `${key} must be valid JSON`
+              });
+            }
+          } else if (key === 'DOB') {
+            user[key] = Number(req.body[key]); // ensure number
+          } else {
+            user[key] = req.body[key];
+          }
+
+        }
       }
     }
 
