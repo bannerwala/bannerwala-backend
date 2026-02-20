@@ -156,7 +156,7 @@ export const getAllUsers = async (req, res) => {
 
     // 2️⃣ Attach activities for each user
     for (let user of users) {
-      const activities = await TemplateActivity.find({
+      const activities = await TemplatesActivity.find({
         user: user._id
       })
         .populate("template", "name thumbnail")
