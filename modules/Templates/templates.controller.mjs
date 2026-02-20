@@ -174,8 +174,6 @@ export const addTemplate = async (req, res) => {
 
         const existing_plans = await SubscriptionPlan.find({ name: { $in: plans } });
         console.log('existing_plans: ', existing_plans);
-        if (!existing_plans.length)
-            return res.status(404).json({ error: "Plans not found" });
 
         /* ===== Generate Layout From PSD ===== */
 
