@@ -130,6 +130,19 @@ export const addTemplate = async (req, res) => {
             return res.status(400).json({ error: "PSD file is required" });
         }
 
+        if (typeof categories === "string") {
+            categories = categories.split(",").map(c => c.trim());
+        }
+
+        if (typeof sub_categories === "string") {
+            sub_categories = sub_categories.split(",").map(s => s.trim());
+        }
+
+        if (typeof plans === "string") {
+            plans = plans.split(",").map(p => p.trim());
+        }
+
+
         /* ===== Validate Relations ===== */
 
         const existing_categories = await Category.find({ name: { $in: categories } });
