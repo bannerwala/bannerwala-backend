@@ -1,14 +1,11 @@
 import express from 'express';
-import { addTemplate, deleteTemplate, getAllTemplates, getAllTemplateUrls, getTemplateById, updateStatus, updateTemplate } from './templates.controller.mjs';
+import { addTemplate, deleteTemplate, getAllTemplates, getTemplateById, updateStatus, updateTemplate } from './templates.controller.mjs';
 import { templateUpload } from './template.helper.mjs';
 const router = express.Router();
 
 
 // GET /api/templates
 router.get('/', getAllTemplates);
-
-//GET /api/templates/urls
-router.get("/urls", getAllTemplateUrls);
 
 // GET /api/templates/:id
 router.get('/:id', getTemplateById);
