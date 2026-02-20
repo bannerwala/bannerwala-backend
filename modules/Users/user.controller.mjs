@@ -254,7 +254,7 @@ export const updateUser = async (req, res) => {
       }
     }
 
-    console.log('req.files: ', req.files);
+    // console.log('req.files: ', req.files);
     // ✅ Handle profile_pic upload
     if (req.files?.profile_pic?.[0]) {
       const file = req.files.profile_pic[0];
@@ -268,7 +268,7 @@ export const updateUser = async (req, res) => {
           stream,
           'users/profile_pic'
         );
-        console.log('result: ', result);
+        // console.log('result: ', result);
 
         user.profile_pic = result;
       }

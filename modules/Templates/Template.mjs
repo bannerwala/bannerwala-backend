@@ -41,7 +41,7 @@ const templateSchema = new mongoose.Schema({
   font_style: String,
   font_weight: String,
 
-  has_multiple_images: {
+  has_banner_footer: {
     type: Boolean,
     default: false
   },

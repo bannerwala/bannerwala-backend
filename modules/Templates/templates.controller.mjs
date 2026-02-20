@@ -121,7 +121,7 @@ export const addTemplate = async (req, res) => {
             font_family,
             font_size,
             font_color,
-            has_multiple_images
+            has_banner_footer
         } = req.body;
         console.log('req.body: ', req.body);
 
@@ -195,7 +195,7 @@ export const addTemplate = async (req, res) => {
             font_family,
             font_size,
             font_color,
-            has_multiple_images
+            has_banner_footer
         });
 
         await template.save();
