@@ -23,7 +23,7 @@ export const templateUpload = multer({
   storage,
   limits: {
     fileSize: 300 * 1024 * 1024, // 300MB
-    files: 2
+    files: 1
   }
 }).single('psd_file');
 
@@ -60,44 +60,23 @@ export async function processPSD(psdPath) {
   console.log("==================================================");
 
   const startTime = Date.now();
-
-  // logMemory("Before parsing");
-
   const psd = PSD.fromFile(psdPath);
   psd.parse();
 
-  // logMemory("After parsing");
+  const canvas = { width: psd.header.width, height: psd.header.height };
 
-  const canvas = {
-    width: psd.header.width,
-    height: psd.header.height
-  };
-
-
-  //Generate preview of psd
+  // Preview & thumbnail
   const previewPng = await psd.image.toPng();
-
-  // const previewUrl = await uploadPngStream(
-  //   previewPng.pack(),
-  //   `preview_${Date.now()}`
-  // );
-
-  const thumbnail = await generateThumbnailFromPsdPreview(previewPng)
-
-  // console.log('previewUrl: ', previewUrl);
-  console.log('thumbnail: ', thumbnail);
-
+  const thumbnail = await generateThumbnailFromPsdPreview(previewPng);
   console.log("🖼 Canvas Size:", canvas.width, "x", canvas.height);
 
   const nodes = flatten(psd.tree().children());
-
-  console.log(`📦 Total Visible Layers Found: ${nodes.length}`);
+  console.log(`📦 Total Visible Layers: ${nodes.length}`);
 
   const layers = [];
 
   if (nodes.length === 0) {
     console.log("⚠️ No layers found. Exporting composite image.");
-
     const layer = {
       id: 0,
       name: 'background',
@@ -108,80 +87,58 @@ export async function processPSD(psdPath) {
       height: canvas.height,
       opacity: 255,
       zIndex: 0,
+      locked: true,
       editable: false,
-      replaceable: true
+      replaceable: true,
+      src: await uploadPngStream(previewPng.pack(), `background_${Date.now()}`)
     };
-
-    console.log("⬆ Uploading composite image...");
-
-    const png = await psd.image.toPng();
-    layer.src = await uploadPngStream(
-      png.pack(),
-      `background_${Date.now()}`
-    );
-
-    console.log("✅ Composite image uploaded:", layer.src);
-
     layers.push(layer);
   } else {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
-
-      console.log(
-        `--------------------------------------------------`
-      );
-      console.log(
-        `🔹 Processing Layer ${i + 1}/${nodes.length} → ${node.name}`
-      );
+      console.log(`🔹 Layer ${i + 1}/${nodes.length}: ${node.name}`);
 
       const bounds = getLayerBounds(node, canvas);
       const type = detectType(node);
+
+      // Lock detection
+      let locked = false;
+      try {
+        const prot = node.layer?.protected; // bitmask from PSD
+        locked = typeof prot === 'number' ? prot !== 0 : Boolean(prot);
+      } catch (_) {
+        locked = false;
+      }
 
       const layer = {
         id: i,
         name: safeName(node.name),
         type: type === 'shape' ? 'image' : type,
         ...bounds,
-        opacity: Math.round((node.export().opacity || 1) * 255),
+        opacity: Math.round((node.export().opacity ?? 1) * 255),
         zIndex: i,
-        editable: false
+        locked,
+        editable: type === 'text' ? !locked : false,
+        replaceable: type !== 'text' ? !locked : false,
       };
 
-      console.log("📐 Bounds:", bounds);
-      console.log("🎨 Type:", type);
-
       if (type === 'text') {
-        console.log("📝 Extracting text layer...");
-        Object.assign(layer, extractText(node), { editable: true });
-        console.log("✅ Text extracted:", layer.content);
+        Object.assign(layer, extractText(node, locked));
       } else {
         try {
-          console.log("⬆ Generating PNG...");
           const png = await node.toPng();
-
-          console.log("⬆ Uploading to Cloudinary...");
-          const uploadStart = Date.now();
-
           layer.src = await uploadPngStream(
             png.pack(),
             `layer_${Date.now()}_${i}_${safeName(node.name)}`
           );
-
-          const uploadTime = ((Date.now() - uploadStart) / 1000).toFixed(2);
-
-          console.log("✅ Uploaded:", layer.src);
-          console.log(`⏱ Upload Time: ${uploadTime}s`);
         } catch (err) {
           console.error("❌ Upload failed:", err.message);
         }
       }
 
       layers.push(layer);
-
-      // logMemory(`After layer ${i + 1}`);
     }
   }
-
 
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
 
@@ -203,33 +160,41 @@ export async function processPSD(psdPath) {
 const safeName = (name = 'layer') =>
   name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, '_').toLowerCase();
 
-const rgba = (c, a = 1) =>
-  `rgba(${c?.['Rd  '] || 0},${c?.['Grn '] || 0},${c?.['Bl  '] || 0},${a})`;
+function flatten(nodes, out = []) {
+  for (const n of nodes) {
+    if (!n || n.hidden?.()) continue;
+    if (n.isGroup && n.isGroup()) flatten(n.children() || [], out);
+    else if (n.isLayer && n.isLayer()) out.push(n);
+  }
+  return out.reverse();
+}
 
-const rad = d => (d || 0) * Math.PI / 180;
+function getLayerBounds(node, canvas) {
+  const e = node.export();
+  return {
+    top: e.top || 0,
+    left: e.left || 0,
+    width: e.width || (node.layer?.right - node.layer?.left) || canvas.width,
+    height: e.height || (node.layer?.bottom - node.layer?.top) || canvas.height
+  };
+}
 
+function isShapeLayer(node) {
+  const name = (node.name || '').toLowerCase();
+  return /(rectangle|ellipse|shape|polygon|line|gradient fill)/.test(name) ||
+    node.get('vectorMask') || node.get('vectorStrokeData') || node.get('vectorShapeGraphics');
+}
 
-/* ===============================================
-   Generate Thumbnail from JPG/PNG File
-=============================================== */
+const detectType = node => node.get('typeTool') ? 'text' : isShapeLayer(node) ? 'shape' : 'image';
 
 async function generateThumbnailFromPsdPreview(pngObject) {
-  console.log("🖼 Converting PSD preview to buffer...");
-
   const buffer = await new Promise((resolve, reject) => {
     const chunks = [];
-
     pngObject.pack()
       .on("data", chunk => chunks.push(chunk))
       .on("end", () => resolve(Buffer.concat(chunks)))
       .on("error", reject);
   });
-
-  console.log(
-    "📦 Original Preview Size:",
-    (buffer.length / 1024 / 1024).toFixed(2),
-    "MB"
-  );
 
   const thumbnailBuffer = await sharp(buffer)
     .resize({ width: 400 })
@@ -253,119 +218,54 @@ async function generateThumbnailFromPsdPreview(pngObject) {
         else resolve(result.secure_url);
       }
     );
-
     uploadStream.end(thumbnailBuffer);
   });
-
-  return thumbnailUrl;
 }
 
-
-/* ======================================================
-   CLOUDINARY UPLOAD FUNCTION (NEW)
-====================================================== */
-
-// function uploadPngStream(pngStream, publicId) {
-//   return new Promise((resolve, reject) => {
-//     const uploadStream = cloudinary.uploader.upload_stream(
-//       {
-//         folder: 'banner_layers',
-//         public_id: publicId,
-//         resource_type: 'image',
-//         transformation: [
-//           { quality: 'auto' },
-//           { fetch_format: 'auto' }
-//         ]
-//       },
-//       (error, result) => {
-//         if (error) return reject(error);
-//         resolve(result.secure_url);
-//       }
-//     );
-
-//     pngStream.pipe(uploadStream);
-//   });
-// }
-
-/* ======================================================
-   TYPE DETECTION
-====================================================== */
-
-function isShapeLayer(node) {
-  const name = (node.name || '').toLowerCase();
-
-  return (
-    /(rectangle|ellipse|shape|polygon|line|gradient fill)/.test(name) ||
-    node.get('vectorMask') ||
-    node.get('vectorStrokeData') ||
-    node.get('vectorShapeGraphics')
-  );
-}
-
-const detectType = node =>
-  node.get('typeTool') ? 'text' : isShapeLayer(node) ? 'shape' : 'image';
-
-/* ======================================================
-   BOUNDS
-====================================================== */
-
-function getLayerBounds(node, canvas) {
-  const e = node.export();
-
-  return {
-    top: e.top || 0,
-    left: e.left || 0,
-    width:
-      e.width ||
-      node.get('mask')?.width ||
-      (node.layer?.right - node.layer?.left) ||
-      canvas.width,
-    height:
-      e.height ||
-      node.get('mask')?.height ||
-      (node.layer?.bottom - node.layer?.top) ||
-      canvas.height
-  };
-}
-
-/* ======================================================
-   TREE FLATTEN
-====================================================== */
-
-function flatten(nodes, out = []) {
-  for (const n of nodes) {
-    if (!n || n.hidden?.()) continue;
-
-    if (n.isGroup && n.isGroup()) {
-      flatten(n.children() || [], out);
-    } else if (n.isLayer && n.isLayer()) {
-      out.push(n);
-    }
-  }
-  return out.reverse();
-}
-
-/* ======================================================
-   TEXT
-====================================================== */
-
-function extractText(node) {
+// ------------------ Text Extraction ------------------
+function extractText(node, locked = false) {
   const tool = node.get('typeTool');
-  if (!tool) return null;
+  if (!tool) return {};
 
   const exported = node.export();
   const font = exported.text?.font || {};
+  const rawSize = font.sizes?.[0] || 24;
+  const transform = exported.text?.transform || {};
+  const scaleX = transform.xx != null ? Math.abs(transform.xx) : 1;
+  const fontSize = Math.round(rawSize * scaleX);
 
-  const size = font.sizes?.[0] || 24;
-  const [r, g, b, a] = font.colors?.[0] || [0, 0, 0, 255];
+  const [r = 0, g = 0, b = 0, a = 255] = font.colors?.[0] || [];
+  const color = `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
+
+  const alignMap = { left: 'left', right: 'right', center: 'center', justify: 'justify' };
+  const textAlign = alignMap[font.alignment?.[0]] || 'left';
+
+  const fontName = font.names?.[0] || 'System';
+  const isBold = /bold/i.test(fontName) || !!font.fauxBold;
+  const isItalic = /italic|oblique/i.test(fontName) || !!font.fauxItalic;
+  const isUnderline = !!font.underline;
+  const isStrikethrough = !!font.strikethrough;
+
+  const tracking = font.tracking || 0;
+  const letterSpacing = tracking !== 0 ? (tracking / 1000) * fontSize : undefined;
+
+  const leading = font.leading;
+  const lineHeight = leading != null ? leading / fontSize : undefined;
 
   return {
     content: tool.textValue?.replace(/\r/g, '\n') || '',
+    editable: !locked,
     style: {
-      fontSize: size,
-      fontFamily: font.names?.[0] || 'System',
-      textAlign: font.alignment?.[0] || 'left',
-      color: `rgba(${r},${g},${b},${a / 255})`
+      fontSize,
+      fontFamily: fontName,
+      textAlign,
+      color,
+      fontWeight: isBold ? 'bold' : 'normal',
+      fontStyle: isItalic ? 'italic' : 'normal',
+      textDecorationLine: isUnderline ? 'underline' :
+        isStrikethrough ? 'line-through' : 'none',
+      ...(letterSpacing != null ? { letterSpacing } : {}),
+      ...(lineHeight != null ? { lineHeight } : {}),
     }
   };
 }
