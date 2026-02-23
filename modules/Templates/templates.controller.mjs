@@ -218,6 +218,7 @@ export const updateTemplate = async (req, res) => {
             categories,
             sub_categories,
             plans,
+            has_banner_footer,
             font_family,
             font_size,
             font_color,
@@ -283,6 +284,7 @@ export const updateTemplate = async (req, res) => {
 
         template.categories = existing_categories.map(c => c._id);
         template.sub_categories = existing_sub_categories.map(s => s._id);
+        template.has_banner_footer = has_banner_footer ?? template.has_banner_footer;
         template.font_family = font_family ?? template.font_family;
         template.font_size = font_size ?? template.font_size;
         template.font_color = font_color ?? template.font_color;
