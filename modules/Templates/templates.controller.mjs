@@ -240,7 +240,7 @@ export const updateTemplate = async (req, res) => {
             sub_categories = sub_categories.split(",").map(s => s.trim());
         }
 
-        if (typeof plans === "string") {
+        if (plans && typeof plans === "string") {
             plans = plans.split(",").map(p => p.trim());
         }
 
