@@ -268,20 +268,21 @@ export const updateTemplate = async (req, res) => {
         }
 
         /* ===== Validate Plans ===== */
+        if (plans && plans.length !== 0) {
+            const existing_plans = await SubscriptionPlan.find({
+                name: { $in: plans }
+            });
 
-        const existing_plans = await SubscriptionPlan.find({
-            name: { $in: plans }
-        });
-
-        if (existing_plans.length !== plans.length) {
-            return res.status(404).json({ error: 'Some plans not found' });
+            if (existing_plans.length !== plans.length) {
+                return res.status(404).json({ error: 'Some plans not found' });
+            }
+            template.plans = existing_plans.map(p => p._id);
         }
 
         /* ===== Update Template ===== */
 
         template.categories = existing_categories.map(c => c._id);
         template.sub_categories = existing_sub_categories.map(s => s._id);
-        template.plans = existing_plans.map(p => p._id);
         template.font_family = font_family ?? template.font_family;
         template.font_size = font_size ?? template.font_size;
         template.font_color = font_color ?? template.font_color;
