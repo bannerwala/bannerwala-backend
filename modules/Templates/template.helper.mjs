@@ -4,6 +4,7 @@ import cloudinary from '../../api/cloudinary.mjs';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { uploadFileToS3 } from '../../api/uploads3.mjs';
 
 // ------------------ Utility ------------------
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -52,6 +53,16 @@ export function uploadPngStream(pngStream, publicId) {
   });
 }
 
+async function streamToBuffer(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+
+    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
+
 
 export async function processPSD(psdPath) {
   console.log("==================================================");
@@ -91,7 +102,7 @@ export async function processPSD(psdPath) {
 
   const nodes = flatten(psd.tree().children());
 
-  console.log(`📦 Total Visible Layers Found: ${nodes.length}`);
+  // console.log("📦 Total Visible Layers Found:", nodes);
 
   const layers = [];
 
@@ -108,17 +119,18 @@ export async function processPSD(psdPath) {
       height: canvas.height,
       opacity: 255,
       zIndex: 0,
-      editable: false,
-      replaceable: true
+      editable: false
     };
 
     console.log("⬆ Uploading composite image...");
 
     const png = await psd.image.toPng();
-    layer.src = await uploadPngStream(
-      png.pack(),
-      `background_${Date.now()}`
+    layer.src = await uploadFileToS3(
+      await streamToBuffer(png.pack()),
+      "bannerwala",
+      `background_${Date.now()}.png`
     );
+
 
     console.log("✅ Composite image uploaded:", layer.src);
 
@@ -133,6 +145,8 @@ export async function processPSD(psdPath) {
       console.log(
         `🔹 Processing Layer ${i + 1}/${nodes.length} → ${node.name}`
       );
+
+
 
       const bounds = getLayerBounds(node, canvas);
       const type = detectType(node);
@@ -162,10 +176,13 @@ export async function processPSD(psdPath) {
           console.log("⬆ Uploading to Cloudinary...");
           const uploadStart = Date.now();
 
-          layer.src = await uploadPngStream(
-            png.pack(),
-            `layer_${Date.now()}_${i}_${safeName(node.name)}`
+          layer.src = await uploadFileToS3(
+            await streamToBuffer(png.pack()),
+            "bannerwala",
+            `layer_${Date.now()}_${i}_${safeName(node.name)}.png`
           );
+
+
 
           const uploadTime = ((Date.now() - uploadStart) / 1000).toFixed(2);
 
@@ -243,19 +260,12 @@ async function generateThumbnailFromPsdPreview(pngObject) {
   );
 
   // Upload to Cloudinary
-  const thumbnailUrl = await new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: "banner_thumbnails"
-      },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result.secure_url);
-      }
-    );
 
-    uploadStream.end(thumbnailBuffer);
-  });
+  const thumbnailUrl = await uploadFileToS3(
+    thumbnailBuffer,
+    "bannerwala",
+    `banner_thumbnails/thumbnailBuffer_${Date.now()}.png`
+  );
 
   return thumbnailUrl;
 }

@@ -1,3 +1,4 @@
+import { getSignedImageUrl } from '../../api/uploads3.mjs';
 import Category from '../Categories/Category.mjs';
 import SubCategory from '../Sub-Categories/SubCategory.mjs';
 import SubscriptionPlan from '../SubscriptionPlans/SubscriptionPlan.mjs';
@@ -181,6 +182,7 @@ export const addTemplate = async (req, res) => {
 
         console.log('req.file: ', req.file);
         const { layout, thumbnail } = await processPSD(req.file.path);
+        console.log('thumbnail: ', thumbnail);
 
         console.log("✅ Layout generated");
 
@@ -327,3 +329,26 @@ export const deleteTemplate = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 }
+
+//Get s3 url
+export const getImageSignedUrl = async (req, res) => {
+  try {
+    const { key } = req.query;
+
+    if (!key) {
+      return res.status(400).json({ error: "Key is required" });
+    }
+
+    const bucketName = "bannerwala";
+
+    const signedUrl = await getSignedImageUrl(bucketName, key);
+
+    return res.status(200).json({
+      success: true,
+      url: signedUrl,
+    });
+  } catch (error) {
+    console.error("❌ Signed URL error:", error);
+    return res.status(500).json({ error: "Failed to generate signed URL" });
+  }
+};

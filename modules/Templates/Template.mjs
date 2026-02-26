@@ -24,7 +24,10 @@ const templateSchema = new mongoose.Schema({
   //   required: true
   // },
 
-  url: String,
+  url: {
+    "bucket": String,
+    "key": String
+  },
 
   plans: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan' }],
   categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
