@@ -28,31 +28,6 @@ export const templateUpload = multer({
   }
 }).single('psd_file');
 
-/**
- * Upload PNG stream (from PSD node.toPng())
- */
-export function uploadPngStream(pngStream, publicId) {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'banner_layers',
-        public_id: publicId,
-        resource_type: 'image',
-        transformation: [
-          { quality: 'auto' },
-          { fetch_format: 'auto' }
-        ]
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result.secure_url);
-      }
-    );
-
-    pngStream.pipe(uploadStream);
-  });
-}
-
 async function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -72,38 +47,25 @@ export async function processPSD(psdPath) {
 
   const startTime = Date.now();
 
-  // logMemory("Before parsing");
-
   const psd = PSD.fromFile(psdPath);
   psd.parse();
 
-  // logMemory("After parsing");
+  // 📏 Use document DPI (resolution) for better text extraction
+  const documentDPI = psd.header?.resolution || 72;
 
   const canvas = {
     width: psd.header.width,
     height: psd.header.height
   };
 
-
-  //Generate preview of psd
+  // Generate preview + thumbnail
   const previewPng = await psd.image.toPng();
+  const thumbnail = await generateThumbnailFromPsdPreview(previewPng);
 
-  // const previewUrl = await uploadPngStream(
-  //   previewPng.pack(),
-  //   `preview_${Date.now()}`
-  // );
-
-  const thumbnail = await generateThumbnailFromPsdPreview(previewPng)
-
-  // console.log('previewUrl: ', previewUrl);
   console.log('thumbnail: ', thumbnail);
-
   console.log("🖼 Canvas Size:", canvas.width, "x", canvas.height);
 
   const nodes = flatten(psd.tree().children());
-
-  // console.log("📦 Total Visible Layers Found:", nodes);
-
   const layers = [];
 
   if (nodes.length === 0) {
@@ -131,22 +93,15 @@ export async function processPSD(psdPath) {
       `background_${Date.now()}.png`
     );
 
-
     console.log("✅ Composite image uploaded:", layer.src);
-
     layers.push(layer);
+
   } else {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
 
-      console.log(
-        `--------------------------------------------------`
-      );
-      console.log(
-        `🔹 Processing Layer ${i + 1}/${nodes.length} → ${node.name}`
-      );
-
-
+      console.log(`--------------------------------------------------`);
+      console.log(`🔹 Processing Layer ${i + 1}/${nodes.length} → ${node.name}`);
 
       const bounds = getLayerBounds(node, canvas);
       const type = detectType(node);
@@ -166,39 +121,41 @@ export async function processPSD(psdPath) {
 
       if (type === 'text') {
         console.log("📝 Extracting text layer...");
-        Object.assign(layer, extractText(node), { editable: true });
+
+        // ✨ Pass DPI into text extraction helper
+        Object.assign(layer, extractText(node, documentDPI), { editable: true });
+
         console.log("✅ Text extracted:", layer.content);
+
       } else {
         try {
           console.log("⬆ Generating PNG...");
-          const png = await node.toPng();
 
-          console.log("⬆ Uploading to Cloudinary...");
+          const png = await node.toPng();
+          const buffer = await streamToBuffer(png.pack());
+
+          console.log("⬆ Uploading to S3...");
           const uploadStart = Date.now();
 
           layer.src = await uploadFileToS3(
-            await streamToBuffer(png.pack()),
+            buffer,
             "bannerwala",
             `layer_${Date.now()}_${i}_${safeName(node.name)}.png`
           );
-
-
 
           const uploadTime = ((Date.now() - uploadStart) / 1000).toFixed(2);
 
           console.log("✅ Uploaded:", layer.src);
           console.log(`⏱ Upload Time: ${uploadTime}s`);
+
         } catch (err) {
           console.error("❌ Upload failed:", err.message);
         }
       }
 
       layers.push(layer);
-
-      // logMemory(`After layer ${i + 1}`);
     }
   }
-
 
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
 
@@ -206,11 +163,9 @@ export async function processPSD(psdPath) {
   console.log(`✅ Finished Processing`);
   console.log(`📦 Total Layers Exported: ${layers.length}`);
   console.log(`⏱ Total Time: ${totalTime}s`);
-  // logMemory("End");
   console.log("==================================================");
-  return { layout: { canvas, layers }, thumbnail }
 
-
+  return { layout: { canvas, layers }, thumbnail };
 }
 
 /* ======================================================
@@ -218,12 +173,9 @@ export async function processPSD(psdPath) {
 ====================================================== */
 
 const safeName = (name = 'layer') =>
-  name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, '_').toLowerCase();
-
-const rgba = (c, a = 1) =>
-  `rgba(${c?.['Rd  '] || 0},${c?.['Grn '] || 0},${c?.['Bl  '] || 0},${a})`;
-
-const rad = d => (d || 0) * Math.PI / 180;
+  name.replace(/[\/\\:*?"<>|]/g, '')
+    .replace(/\s+/g, '_')
+    .toLowerCase();
 
 
 /* ===============================================
@@ -270,33 +222,6 @@ async function generateThumbnailFromPsdPreview(pngObject) {
   return thumbnailUrl;
 }
 
-
-/* ======================================================
-   CLOUDINARY UPLOAD FUNCTION (NEW)
-====================================================== */
-
-// function uploadPngStream(pngStream, publicId) {
-//   return new Promise((resolve, reject) => {
-//     const uploadStream = cloudinary.uploader.upload_stream(
-//       {
-//         folder: 'banner_layers',
-//         public_id: publicId,
-//         resource_type: 'image',
-//         transformation: [
-//           { quality: 'auto' },
-//           { fetch_format: 'auto' }
-//         ]
-//       },
-//       (error, result) => {
-//         if (error) return reject(error);
-//         resolve(result.secure_url);
-//       }
-//     );
-
-//     pngStream.pipe(uploadStream);
-//   });
-// }
-
 /* ======================================================
    TYPE DETECTION
 ====================================================== */
@@ -312,9 +237,13 @@ function isShapeLayer(node) {
   );
 }
 
-const detectType = node =>
-  node.get('typeTool') ? 'text' : isShapeLayer(node) ? 'shape' : 'image';
-
+function detectType(node) {
+  return node.get('typeTool')
+    ? 'text'
+    : isShapeLayer(node)
+      ? 'shape'
+      : 'image';
+}
 /* ======================================================
    BOUNDS
 ====================================================== */
@@ -359,23 +288,56 @@ function flatten(nodes, out = []) {
    TEXT
 ====================================================== */
 
-function extractText(node) {
+function extractText(node, documentDPI = 72) {
+
   const tool = node.get('typeTool');
   if (!tool) return null;
 
   const exported = node.export();
   const font = exported.text?.font || {};
 
-  const size = font.sizes?.[0] || 24;
+  let rawSize = font.sizes?.[0] || 24;
+
+  let size = documentDPI !== 72
+    ? rawSize * (72 / documentDPI)
+    : rawSize;
+
+  const transform = exported.text?.transform;
+
+  if (transform && transform.xx && transform.yy) {
+    const avgScale = (Math.abs(transform.xx) + Math.abs(transform.yy)) / 2;
+    size = size * avgScale;
+  }
+
+  const fontName = font.names?.[0] || 'System';
+  const weight = extractFontWeight(fontName);
+
   const [r, g, b, a] = font.colors?.[0] || [0, 0, 0, 255];
 
   return {
     content: tool.textValue?.replace(/\r/g, '\n') || '',
     style: {
-      fontSize: size,
-      fontFamily: font.names?.[0] || 'System',
-      textAlign: font.alignment?.[0] || 'left',
+      fontSize: Math.round(size),
+      lineHeight: Math.round(size),
+      fontFamily: fontName.replace(/-(thin|light|regular|medium|semibold|bold|black)/i, ''),
+      fontWeight: weight,
       color: `rgba(${r},${g},${b},${a / 255})`
     }
   };
+}
+
+function extractFontWeight(fontName = '') {
+  const name = fontName.toLowerCase();
+
+  if (name.includes('thin')) return 100;
+  if (name.includes('extralight') || name.includes('ultralight')) return 200;
+  if (name.includes('light')) return 300;
+  if (name.includes('regular')) return 400;
+  if (name.includes('medium')) return 500;
+  if (name.includes('semibold') || name.includes('demibold')) return 600;
+  if (name.includes('bold')) return 700;
+  if (name.includes('extrabold') || name.includes('ultrabold')) return 800;
+  if (name.includes('black') || name.includes('heavy')) return 900;
+
+  return 400;
 }
