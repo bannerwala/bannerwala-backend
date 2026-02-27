@@ -2,7 +2,7 @@ import { getSignedImageUrl } from '../../api/uploads3.mjs';
 import Category from '../Categories/Category.mjs';
 import SubCategory from '../Sub-Categories/SubCategory.mjs';
 import SubscriptionPlan from '../SubscriptionPlans/SubscriptionPlan.mjs';
-import { processPSD, uploadPngStream } from './template.helper.mjs';
+import { processPSD } from './template.helper.mjs';
 import Template from './Template.mjs';
 import TemplatesActivity from './TemplatesActivity/TemplatesActivity.mjs';
 
@@ -332,23 +332,23 @@ export const deleteTemplate = async (req, res) => {
 
 //Get s3 url
 export const getImageSignedUrl = async (req, res) => {
-  try {
-    const { key } = req.query;
+    try {
+        const { key } = req.query;
 
-    if (!key) {
-      return res.status(400).json({ error: "Key is required" });
+        if (!key) {
+            return res.status(400).json({ error: "Key is required" });
+        }
+
+        const bucketName = "bannerwala";
+
+        const signedUrl = await getSignedImageUrl(bucketName, key);
+
+        return res.status(200).json({
+            success: true,
+            url: signedUrl,
+        });
+    } catch (error) {
+        console.error("❌ Signed URL error:", error);
+        return res.status(500).json({ error: "Failed to generate signed URL" });
     }
-
-    const bucketName = "bannerwala";
-
-    const signedUrl = await getSignedImageUrl(bucketName, key);
-
-    return res.status(200).json({
-      success: true,
-      url: signedUrl,
-    });
-  } catch (error) {
-    console.error("❌ Signed URL error:", error);
-    return res.status(500).json({ error: "Failed to generate signed URL" });
-  }
 };

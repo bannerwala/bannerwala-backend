@@ -7,8 +7,14 @@ const userSchema = new mongoose.Schema({
     contact_number: String,
     email_id: String,
     is_new_user: Boolean,
-    profile_pic: String,
-    background_removed_pic: String,
+    profile_pic: {
+        bucket: String,
+        key: String
+    },
+    background_removed_pic: {
+        bucket: String,
+        key: String
+    },
     firm_name: String,
     designation: String,
     address: String,

@@ -46,11 +46,8 @@ export async function processPSD(psdPath) {
   console.log("==================================================");
 
   const startTime = Date.now();
-
   const psd = PSD.fromFile(psdPath);
   psd.parse();
-
-  // 📏 Use document DPI (resolution) for better text extraction
   const documentDPI = psd.header?.resolution || 72;
 
   const canvas = {
@@ -58,50 +55,46 @@ export async function processPSD(psdPath) {
     height: psd.header.height
   };
 
-  // Generate preview + thumbnail
   const previewPng = await psd.image.toPng();
   const thumbnail = await generateThumbnailFromPsdPreview(previewPng);
 
-  console.log('thumbnail: ', thumbnail);
   console.log("🖼 Canvas Size:", canvas.width, "x", canvas.height);
 
   const nodes = flatten(psd.tree().children());
   const layers = [];
 
+  // If no layers, upload composite and return
   if (nodes.length === 0) {
-    console.log("⚠️ No layers found. Exporting composite image.");
+    console.log("⚠️ No layers found. Exporting single composite image.");
 
-    const layer = {
+    const png = await psd.image.toPng();
+    const buffer = await streamToBuffer(png.pack());
+
+    const url = await uploadFileToS3(
+      buffer,
+      "bannerwala",
+      `background_${Date.now()}.png`
+    );
+
+    layers.push({
       id: 0,
-      name: 'background',
-      type: 'image',
+      name: "background",
+      type: "image",
       top: 0,
       left: 0,
       width: canvas.width,
       height: canvas.height,
       opacity: 255,
       zIndex: 0,
-      editable: false
-    };
+      editable: false,
+      src: url
+    });
 
-    console.log("⬆ Uploading composite image...");
-
-    const png = await psd.image.toPng();
-    layer.src = await uploadFileToS3(
-      await streamToBuffer(png.pack()),
-      "bannerwala",
-      `background_${Date.now()}.png`
-    );
-
-    console.log("✅ Composite image uploaded:", layer.src);
-    layers.push(layer);
-
+    console.log("✅ Uploaded composite:", url);
   } else {
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-
-      console.log(`--------------------------------------------------`);
-      console.log(`🔹 Processing Layer ${i + 1}/${nodes.length} → ${node.name}`);
+    // Prepare all async layer tasks
+    const layerTasks = nodes.map(async (node, i) => {
+      console.log(`🔹 Queued Layer ${i + 1}/${nodes.length} for processing → ${node.name}`);
 
       const bounds = getLayerBounds(node, canvas);
       const type = detectType(node);
@@ -109,56 +102,52 @@ export async function processPSD(psdPath) {
       const layer = {
         id: i,
         name: safeName(node.name),
-        type: type === 'shape' ? 'image' : type,
+        type: type === "shape" ? "image" : type,
         ...bounds,
         opacity: Math.round((node.export().opacity || 1) * 255),
         zIndex: i,
-        editable: false
+        editable: type === "text"
       };
 
-      console.log("📐 Bounds:", bounds);
-      console.log("🎨 Type:", type);
-
-      if (type === 'text') {
-        console.log("📝 Extracting text layer...");
-
-        // ✨ Pass DPI into text extraction helper
-        Object.assign(layer, extractText(node, documentDPI), { editable: true });
-
-        console.log("✅ Text extracted:", layer.content);
-
-      } else {
-        try {
-          console.log("⬆ Generating PNG...");
-
-          const png = await node.toPng();
-          const buffer = await streamToBuffer(png.pack());
-
-          console.log("⬆ Uploading to S3...");
-          const uploadStart = Date.now();
-
-          layer.src = await uploadFileToS3(
-            buffer,
-            "bannerwala",
-            `layer_${Date.now()}_${i}_${safeName(node.name)}.png`
-          );
-
-          const uploadTime = ((Date.now() - uploadStart) / 1000).toFixed(2);
-
-          console.log("✅ Uploaded:", layer.src);
-          console.log(`⏱ Upload Time: ${uploadTime}s`);
-
-        } catch (err) {
-          console.error("❌ Upload failed:", err.message);
-        }
+      if (type === "text") {
+        console.log(`📝 Extracting text for ${node.name}`);
+        Object.assign(layer, extractText(node, documentDPI));
+        return layer;
       }
 
-      layers.push(layer);
+      try {
+        const png = await node.toPng();
+        const buffer = await streamToBuffer(png.pack());
+
+        const uploadStart = Date.now();
+        const url = await uploadFileToS3(
+          buffer,
+          "bannerwala",
+          `layer_${Date.now()}_${i}_${safeName(node.name)}.png`
+        );
+
+        console.log(`✅ Upload complete for ${node.name} (${((Date.now() - uploadStart) / 1000).toFixed(2)}s)`);
+
+        layer.src = url;
+      } catch (err) {
+        console.error(`❌ Upload failed for layer ${node.name}:`, err.message);
+      }
+
+      return layer;
+    });
+
+    // Wait for all layer tasks to complete in parallel
+    const results = await Promise.allSettled(layerTasks);
+
+    // Add only fulfilled results
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value) {
+        layers.push(result.value);
+      }
     }
   }
 
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-
   console.log("==================================================");
   console.log(`✅ Finished Processing`);
   console.log(`📦 Total Layers Exported: ${layers.length}`);

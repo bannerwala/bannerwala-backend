@@ -9,7 +9,6 @@ import dotenv from 'dotenv';
 
 import UserRole from "../UserRoles/UserRole.mjs";
 import TemplatesActivity from '../Templates/TemplatesActivity/TemplatesActivity.mjs';
-import { uploadPngStream } from '../Templates/template.helper.mjs';
 
 dotenv.config();
 
@@ -264,11 +263,11 @@ export const updateUser = async (req, res) => {
       if (req.files?.profile_pic?.[0]) {
         const file = req.files.profile_pic[0];
         const stream = streamifier.createReadStream(file.buffer);
-        const result = await uploadPngStream(
-          stream,
-          'users/profile_pic'
+        const result = await uploadFileToS3(
+          file.buffer,
+          "bannerwala",
+          `users/profile_${Date.now()}.png`
         );
-        // console.log('result: ', result);
 
         user.profile_pic = result;
       }
@@ -281,9 +280,10 @@ export const updateUser = async (req, res) => {
       if (req.files?.background_removed_pic?.[0]) {
         const file = req.files.background_removed_pic[0];
         const stream = streamifier.createReadStream(file.buffer);
-        const result = await uploadPngStream(
-          stream,
-          'users/background_removed'
+        const result = await uploadFileToS3(
+          file.buffer,
+          "bannerwala",
+          `users/profile_${Date.now()}.png`
         );
         console.log('result: ', result);
 
