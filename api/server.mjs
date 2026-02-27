@@ -54,9 +54,10 @@ async function connectToDB() {
     await connectToDB();
     const PORT = process.env.PORT || 5000;
 
-    app.listen(PORT, () => {
+    let server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
+    server.setTimeout(120000); // 2 minutes
   } catch (err) {
     process.exit(1);
   }
