@@ -57,7 +57,7 @@ async function connectToDB() {
     let server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-    server.setTimeout(120000); // 2 minutes
+    server.setTimeout(180000); // 3 minutes
   } catch (err) {
     process.exit(1);
   }
