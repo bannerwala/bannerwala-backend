@@ -40,10 +40,7 @@ async function streamToBuffer(stream) {
 
 
 export async function processPSD(psdPath) {
-  console.log("==================================================");
   console.log("🚀 Starting PSD Processing");
-  console.log("📂 File:", psdPath);
-  console.log("==================================================");
 
   const startTime = Date.now();
   const psd = PSD.fromFile(psdPath);
@@ -58,7 +55,6 @@ export async function processPSD(psdPath) {
   const previewPng = await psd.image.toPng();
   const thumbnail = await generateThumbnailFromPsdPreview(previewPng);
 
-  console.log("🖼 Canvas Size:", canvas.width, "x", canvas.height);
 
   const nodes = flatten(psd.tree().children());
   const layers = [];
@@ -110,7 +106,6 @@ export async function processPSD(psdPath) {
       };
 
       if (type === "text") {
-        console.log(`📝 Extracting text for ${node.name}`);
         Object.assign(layer, extractText(node, documentDPI));
         return layer;
       }
@@ -150,7 +145,6 @@ export async function processPSD(psdPath) {
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
   console.log("==================================================");
   console.log(`✅ Finished Processing`);
-  console.log(`📦 Total Layers Exported: ${layers.length}`);
   console.log(`⏱ Total Time: ${totalTime}s`);
   console.log("==================================================");
 
@@ -183,24 +177,10 @@ async function generateThumbnailFromPsdPreview(pngObject) {
       .on("error", reject);
   });
 
-  console.log(
-    "📦 Original Preview Size:",
-    (buffer.length / 1024 / 1024).toFixed(2),
-    "MB"
-  );
-
   const thumbnailBuffer = await sharp(buffer)
     .resize({ width: 400 })
     .jpeg({ quality: 80 })
     .toBuffer();
-
-  console.log(
-    "📦 Thumbnail Size:",
-    (thumbnailBuffer.length / 1024).toFixed(2),
-    "KB"
-  );
-
-  // Upload to Cloudinary
 
   const thumbnailUrl = await uploadFileToS3(
     thumbnailBuffer,
