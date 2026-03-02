@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 
 import UserRole from "../UserRoles/UserRole.mjs";
 import TemplatesActivity from '../Templates/TemplatesActivity/TemplatesActivity.mjs';
+import { uploadFileToS3 } from '../../api/uploads3.mjs';
 
 dotenv.config();
 
