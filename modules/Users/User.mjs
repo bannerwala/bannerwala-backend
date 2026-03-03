@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema({
     firm_name: String,
     designation: String,
     address: String,
+    description:String,
 
     // 🔐 OTP fields
     otp: String,

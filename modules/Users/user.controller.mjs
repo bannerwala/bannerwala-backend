@@ -215,6 +215,7 @@ export const updateUser = async (req, res) => {
     'language',
     'gender',
     'DOB',
+    'description',
     'subscription_details',
     'user_template_details'
   ];
