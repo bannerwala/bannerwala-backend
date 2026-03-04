@@ -126,184 +126,195 @@ export const sendOtp = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const { role, plan } = req.query;
+    const { role, plan, contact_number, name } = req.query;
     let filter = {};
 
-    // 🔎 Filter by plan
-    if (plan) {
-      const existingPlans = await SubscriptionPlan.find({
-        name: { $regex: plan, $options: "i" }
-      });
-
-      if (existingPlans.length > 0) {
-        filter["subscription_details.plan"] = {
-          $in: existingPlans.map(p => p._id)
-        };
-      }
+    // Filter by contact_number
+    if (contact_number) {
+      filter.contact_number = { $regex: contact_number, $options: "i" };
+    }
+    
+    // Filter by name
+    if (name) {
+      filter.name = { $regex: name, $options: "i" };
     }
 
-    // 🔎 Filter by role
-    if (role) {
-      const existingRole = await UserRole.findOne({ name: role });
-      if (!existingRole) {
-        return res.status(400).json({ message: "User role not found" });
+      // 🔎 Filter by plan
+      if (plan) {
+        const existingPlans = await SubscriptionPlan.find({
+          name: { $regex: plan, $options: "i" }
+        });
+
+        if (existingPlans.length > 0) {
+          filter["subscription_details.plan"] = {
+            $in: existingPlans.map(p => p._id)
+          };
+        }
       }
-      filter.role = existingRole._id;
+
+      // 🔎 Filter by role
+      if (role) {
+        const existingRole = await UserRole.findOne({ name: role });
+        if (!existingRole) {
+          return res.status(400).json({ message: "User role not found" });
+        }
+        filter.role = existingRole._id;
+      }
+
+      // 1️⃣ Get users
+      const users = await User.find(filter)
+        .populate("role")
+        .lean(); // important
+
+      // 2️⃣ Attach activities for each user
+      for (let user of users) {
+        const activities = await TemplatesActivity.find({
+          user: user._id
+        })
+          .populate("template", "name thumbnail")
+          .sort({ created_at: -1 });
+
+        user.template_activities = activities;
+      }
+
+      res.json(users);
+
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
+  };
 
-    // 1️⃣ Get users
-    const users = await User.find(filter)
-      .populate("role")
-      .lean(); // important
 
-    // 2️⃣ Attach activities for each user
-    for (let user of users) {
+  // Get a single user
+  export const getUserById = async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id)
+        .populate('role')
+        .lean();
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
       const activities = await TemplatesActivity.find({
         user: user._id
       })
-        .populate("template", "name thumbnail")
-        .sort({ created_at: -1 });
+        .populate("template")
+        .sort({ created_at: -1 })
+        .lean();
 
       user.template_activities = activities;
+
+      res.json(user);
+
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-
-    res.json(users);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+  };
 
 
-// Get a single user
-export const getUserById = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .populate('role')
-      .lean();
+  //  Update a single user
+  export const updateUser = async (req, res) => {
+    // console.log('req: ', req);
+    const ALLOWED_UPDATES = [
+      'name',
+      'email_id',
+      'firm_name',
+      'designation',
+      'address',
+      'language',
+      'gender',
+      'DOB',
+      'description',
+      'subscription_details',
+      'user_template_details'
+    ];
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const id = req.params.id;
 
-    const activities = await TemplatesActivity.find({
-      user: user._id
-    })
-      .populate("template")
-      .sort({ created_at: -1 })
-      .lean();
+    try {
+      const user = await User.findById(id);
+      // console.log('user: ', user);
 
-    user.template_activities = activities;
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
-    res.json(user);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-
-//  Update a single user
-export const updateUser = async (req, res) => {
-  // console.log('req: ', req);
-  const ALLOWED_UPDATES = [
-    'name',
-    'email_id',
-    'firm_name',
-    'designation',
-    'address',
-    'language',
-    'gender',
-    'DOB',
-    'subscription_details',
-    'user_template_details'
-  ];
-
-  const id = req.params.id;
-
-  try {
-    const user = await User.findById(id);
-    // console.log('user: ', user);
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // ✅ Update text fields from form-data
-    for (const key of ALLOWED_UPDATES) {
-      // console.log('req.body[key]: ', req.body[key]);
+      // ✅ Update text fields from form-data
       for (const key of ALLOWED_UPDATES) {
-        if (req.body[key] !== undefined) {
+        // console.log('req.body[key]: ', req.body[key]);
+        for (const key of ALLOWED_UPDATES) {
+          if (req.body[key] !== undefined) {
 
-          // 🔥 Parse JSON fields properly
-          if (key === 'subscription_details' || key === 'user_template_details') {
-            try {
-              user[key] = JSON.parse(req.body[key]);
-            } catch (error) {
-              return res.status(400).json({
-                error: `${key} must be valid JSON`
-              });
+            // 🔥 Parse JSON fields properly
+            if (key === 'subscription_details' || key === 'user_template_details') {
+              try {
+                user[key] = JSON.parse(req.body[key]);
+              } catch (error) {
+                return res.status(400).json({
+                  error: `${key} must be valid JSON`
+                });
+              }
+            } else if (key === 'DOB') {
+              user[key] = Number(req.body[key]); // ensure number
+            } else {
+              user[key] = req.body[key];
             }
-          } else if (key === 'DOB') {
-            user[key] = Number(req.body[key]); // ensure number
-          } else {
-            user[key] = req.body[key];
-          }
 
+          }
         }
       }
-    }
 
-    // console.log('req.files: ', req.files);
-    // ✅ Handle profile_pic upload
-    if (req.files?.profile_pic?.[0]) {
-      const file = req.files.profile_pic[0];
-
-      // Example: save base64 OR upload to cloudinary here
-      // user.profile_pic = file.buffer.toString('base64');
+      // console.log('req.files: ', req.files);
+      // ✅ Handle profile_pic upload
       if (req.files?.profile_pic?.[0]) {
         const file = req.files.profile_pic[0];
-        const stream = streamifier.createReadStream(file.buffer);
-        const result = await uploadFileToS3(
-          file.buffer,
-          "bannerwala",
-          `users/profile_${Date.now()}.png`
-        );
 
-        user.profile_pic = result;
+        // Example: save base64 OR upload to cloudinary here
+        // user.profile_pic = file.buffer.toString('base64');
+        if (req.files?.profile_pic?.[0]) {
+          const file = req.files.profile_pic[0];
+          const stream = streamifier.createReadStream(file.buffer);
+          const result = await uploadFileToS3(
+            file.buffer,
+            "bannerwala",
+            `users/profile_${Date.now()}.png`
+          );
+
+          user.profile_pic = result;
+        }
       }
-    }
 
-    // ✅ Handle background_removed_pic upload
-    if (req.files?.background_removed_pic?.[0]) {
-      const file = req.files.background_removed_pic[0];
-      // user.background_removed_pic = file.buffer.toString('base64');
+      // ✅ Handle background_removed_pic upload
       if (req.files?.background_removed_pic?.[0]) {
         const file = req.files.background_removed_pic[0];
-        const stream = streamifier.createReadStream(file.buffer);
-        const result = await uploadFileToS3(
-          file.buffer,
-          "bannerwala",
-          `users/profile_${Date.now()}.png`
-        );
-        console.log('result: ', result);
+        // user.background_removed_pic = file.buffer.toString('base64');
+        if (req.files?.background_removed_pic?.[0]) {
+          const file = req.files.background_removed_pic[0];
+          const stream = streamifier.createReadStream(file.buffer);
+          const result = await uploadFileToS3(
+            file.buffer,
+            "bannerwala",
+            `users/profile_${Date.now()}.png`
+          );
+          console.log('result: ', result);
 
-        user.background_removed_pic = result;
+          user.background_removed_pic = result;
+        }
       }
+
+      // If new user → mark false
+      if (user.is_new_user === true) {
+        user.is_new_user = false;
+      }
+
+      await user.save();
+      await user.populate({ path: 'role' });
+
+      return res.json(user);
+
+    } catch (err) {
+      console.error('Error updating user:', err);
+      return res.status(500).json({ error: err.message });
     }
-
-    // If new user → mark false
-    if (user.is_new_user === true) {
-      user.is_new_user = false;
-    }
-
-    await user.save();
-    await user.populate({ path: 'role' });
-
-    return res.json(user);
-
-  } catch (err) {
-    console.error('Error updating user:', err);
-    return res.status(500).json({ error: err.message });
-  }
-};
+  };
