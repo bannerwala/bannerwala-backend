@@ -106,7 +106,7 @@ export const sendOtp = async (req, res) => {
     }
 
     // Send OTP
-    var data = {
+    let data = {
       "to": `91${contact_number}`,
       "from": "3_EXTENT",
       "sms": `This is your OTP for Bannerwala : ${otp}`,
@@ -114,7 +114,7 @@ export const sendOtp = async (req, res) => {
       "api_key": process.env.TERMII_API_KEY,
       "channel": "generic",
     };
-    var options = {
+    let options = {
       'method': 'POST',
       'url': 'https://v3.api.termii.com/api/sms/send',
       'headers': {
@@ -123,9 +123,17 @@ export const sendOtp = async (req, res) => {
       body: JSON.stringify(data)
 
     };
-    request(options, function (error, response) {
-      if (error) throw new Error(error);
+
+    request(options, async function (error, response) {
+      if (error) {
+        console.error(error);
+        return;
+      }
+
       console.log(response.body);
+
+      user.otp = "123456";
+      await user.save();
     });
 
     res.json({
