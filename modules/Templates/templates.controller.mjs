@@ -9,18 +9,7 @@ import TemplatesActivity from './TemplatesActivity/TemplatesActivity.mjs';
 //Get all templates with filters
 export const getAllTemplates = async (req, res) => {
     try {
-        const { category, sub_category, plans, limit: limitStr, offset: offsetStr } = req.query;
-
-        // parse limit and offset, and default values
-        const defaultLimit = 10;
-        const maxLimit = 10;
-        let limit = parseInt(limitStr);
-        if (isNaN(limit) || limit < 1) limit = defaultLimit;
-        if (limit > maxLimit) limit = maxLimit;
-
-        let offset = parseInt(offsetStr);
-        if (isNaN(offset) || offset < 0) offset = 0;
-
+        const { category, sub_category, plans, limit, offset } = req.query;
         const filter = {};
 
         if (plans !== undefined) {
@@ -37,14 +26,27 @@ export const getAllTemplates = async (req, res) => {
             filter.sub_categories = { $in: existing_sub_categories.map(sub_category => sub_category._id) };
         }
 
-        const templates = await Template.find(filter)
+        let query = Template.find(filter)
             .select('-layout')
             .populate('categories')
             .populate('sub_categories')
-            .populate('plans')
-            .skip(offset)
-            .limit(limit)
-            .lean();
+            .populate('plans');
+
+        if (limit !== undefined) {
+            const parsedLimit = parseInt(limit);
+            if (!isNaN(parsedLimit) && parsedLimit > 0) {
+                query = query.limit(parsedLimit);
+            }
+        }
+
+        if (offset !== undefined) {
+            const parsedOffset = parseInt(offset);
+            if (!isNaN(parsedOffset) && parsedOffset >= 0) {
+                query = query.skip(parsedOffset);
+            }
+        }
+
+        const templates = await query.lean();
 
 
         for (let template of templates) {
